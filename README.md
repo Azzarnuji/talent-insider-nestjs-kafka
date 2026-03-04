@@ -211,6 +211,7 @@ Setiap pesan yang dikirim ke Kafka akan mengikuti struktur standar berikut:
 ```json
 {
   "schema_version": 1,
+  "event_id": "8ec5bc6b-e3f9-4672-911e-45037d77b8f0",
   "topic": "app.events",
   "event_type": "certificates.created",
   "event_time": "2026-03-04T06:59:49.134Z",

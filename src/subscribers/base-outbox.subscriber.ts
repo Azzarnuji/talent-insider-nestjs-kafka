@@ -7,6 +7,7 @@ import {
 } from "typeorm";
 import { OutboxService } from "../outbox.service";
 import { Logger } from "@nestjs/common";
+import { v4 as uuidv4 } from "uuid";
 import {
   KAFKA_EVENT_METADATA_KEY,
   KafkaEventMetadataOptions,
@@ -161,8 +162,9 @@ export abstract class AbstractOutboxSubscriber<
 
     // --- Start Building Advanced Event Schema ---
     const schema_version = options?.schemaVersion || 1;
+    const event_id = uuidv4(); // Unique Event ID
     const eventType = this.getEventType(entityName, targetEntity as T, action);
-    const key = this.getKey(targetEntity as T);
+    const key = this.getKey(targetEntity as T) || event_id; // Default to event_id if no key
     const eventData = this.preparePayload(after as T, before);
     const metadata = this.getAdditionalMetadata(targetEntity as T);
 
@@ -187,6 +189,7 @@ export abstract class AbstractOutboxSubscriber<
 
     const finalPayload = {
       schema_version,
+      event_id,
       topic,
       event_type: eventType,
       event_time: new Date().toISOString(),
@@ -199,9 +202,10 @@ export abstract class AbstractOutboxSubscriber<
 
     if (this.outboxService["options"]?.enableLog !== false) {
       this.logger.debug(
-        `Relaying entity change to outbox: topic=${topic}, eventType=${eventType}, affected=${affected_type}:${affected_id}`,
+        `Relaying entity change to outbox: topic=${topic}, eventType=${eventType}, eventId=${event_id}, affected=${affected_type}:${affected_id}`,
       );
     }
-    await this.outboxService.emit(topic, finalPayload, key);
+    // Using event_id as the Kafka key for consistent delivery and tracking
+    await this.outboxService.emit(topic, finalPayload, event_id);
   }
 }
