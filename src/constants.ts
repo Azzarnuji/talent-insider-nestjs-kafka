@@ -28,6 +28,9 @@ export interface KafkaOutboxModuleOptions {
   /** List Class Entity yang ingin dikecualikan dari pemantauan GlobalOutboxSubscriber */
   excludedEntities?: EntityClassOrSchema[];
 
+  /** Versi skema JSON yang digunakan (optional) */
+  schemaVersion?: number;
+
   /** Konfigurasi untuk worker yang mengirim pesan ke Kafka */
   workerOptions: {
     /** Strategi polling: 'interval' (berdasarkan waktu) atau 'cron' (berdasarkan jadwal) */
@@ -57,3 +60,31 @@ export interface KafkaOutboxModuleOptions {
 
 /** Injection token untuk opsi KafkaOutboxModule */
 export const KAFKA_OUTBOX_OPTIONS = "KAFKA_OUTBOX_OPTIONS";
+
+/** Metadata key untuk penyimpanan info Kafka di level entity class */
+export const KAFKA_EVENT_METADATA_KEY = "talent-insider:kafka-event-metadata";
+
+/** Interface untuk opsi decorator @KafkaEventMetadata */
+export interface KafkaEventMetadataOptions {
+  /** Nama tipe entitas yang terdampak (misal: 'user', 'company') */
+  affectedType?: string;
+  /** Nama field yang menyimpan ID entitas terdampak (misal: 'user_id') */
+  affectedIdField?: string;
+}
+
+/**
+ * Decorator untuk menandai metadata khusus event Kafka pada sebuah Entity.
+ * Digunakan oleh GlobalOutboxSubscriber untuk menentukan affected_type dan affected_id secara otomatis.
+ *
+ * @example
+ * @Entity()
+ * @KafkaEventMetadata({ affectedType: 'user', affectedIdField: 'user_id' })
+ * export class CertificateEntity {}
+ */
+export function KafkaEventMetadata(
+  options: KafkaEventMetadataOptions,
+): ClassDecorator {
+  return (target: object) => {
+    Reflect.defineMetadata(KAFKA_EVENT_METADATA_KEY, options, target);
+  };
+}

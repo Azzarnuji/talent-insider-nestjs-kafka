@@ -7,6 +7,10 @@ import {
 } from "typeorm";
 import { OutboxService } from "../outbox.service";
 import { Logger } from "@nestjs/common";
+import {
+  KAFKA_EVENT_METADATA_KEY,
+  KafkaEventMetadataOptions,
+} from "../constants";
 
 /**
  * Kelas abstrak dasar untuk Entity Subscriber yang terintegrasi dengan Kafka Outbox.
@@ -62,7 +66,15 @@ export abstract class AbstractOutboxSubscriber<
    * Berguna untuk menjamin urutan pesan (Order Guarantee) di Kafka Partition.
    */
   getKey(entity: T): string | undefined {
-    return (entity as any).id?.toString();
+    return (entity as any).id?.toString() || (entity as any).uuid?.toString();
+  }
+
+  /**
+   * Menambahkan metadata tambahan ke dalam event (misal: actor_id, ip).
+   * Developer bisa meng-override ini untuk mengambil data dari context (misal: nestjs-cls).
+   */
+  getAdditionalMetadata(entity: T): any {
+    return {};
   }
 
   /**
@@ -80,13 +92,13 @@ export abstract class AbstractOutboxSubscriber<
   }
 
   async afterInsert(event: InsertEvent<T>) {
-    await this.handleEvent(event.metadata.name, null, event.entity, "created");
+    await this.handleEvent(event, null, event.entity, "created");
   }
 
   async afterUpdate(event: UpdateEvent<T>) {
     if (event.entity) {
       await this.handleEvent(
-        event.metadata.name,
+        event,
         event.databaseEntity,
         event.entity as T,
         "updated",
@@ -96,19 +108,14 @@ export abstract class AbstractOutboxSubscriber<
 
   async afterRemove(event: any) {
     if (event.entity) {
-      await this.handleEvent(
-        event.metadata.name,
-        event.entity,
-        null,
-        "deleted",
-      );
+      await this.handleEvent(event, event.entity, null, "deleted");
     }
   }
 
   async afterSoftRemove(event: any) {
     if (event.entity) {
       await this.handleEvent(
-        event.metadata.name,
+        event,
         event.databaseEntity,
         event.entity,
         "deleted",
@@ -117,11 +124,14 @@ export abstract class AbstractOutboxSubscriber<
   }
 
   private async handleEvent(
-    entityName: string,
+    event: any,
     before: T | null,
     after: T | null,
     action: "created" | "updated" | "deleted",
   ) {
+    const entityName = event.metadata.name;
+    const targetEntity = (after || before) as any;
+
     // Recursion Guard: Ignore outbox transitions to avoid infinite loops
     if (entityName === "OutboxEntity" || entityName === "OutboxIntEntity") {
       return;
@@ -139,11 +149,9 @@ export abstract class AbstractOutboxSubscriber<
       return;
     }
 
-    const targetEntity = after || before;
     if (!targetEntity) return;
 
-    const topic = (this.outboxService as any).options?.topic;
-
+    const topic = options?.topic;
     if (!topic) {
       this.logger.error(
         "Kafka topic is not defined in KafkaOutboxModule options",
@@ -151,22 +159,47 @@ export abstract class AbstractOutboxSubscriber<
       return;
     }
 
+    // --- Start Building Advanced Event Schema ---
+    const schema_version = options?.schemaVersion || 1;
     const eventType = this.getEventType(entityName, targetEntity as T, action);
     const key = this.getKey(targetEntity as T);
-
     const eventData = this.preparePayload(after as T, before);
+    const metadata = this.getAdditionalMetadata(targetEntity as T);
+
+    // Automatic detection for affected_type & affected_id
+    let affected_type = entityName.toLowerCase();
+    let affected_id = targetEntity.id || targetEntity.uuid || targetEntity.guid;
+
+    // Check for @KafkaEventMetadata decorator
+    const decoratorMetadata: KafkaEventMetadataOptions = Reflect.getMetadata(
+      KAFKA_EVENT_METADATA_KEY,
+      event.metadata.target,
+    );
+
+    if (decoratorMetadata) {
+      if (decoratorMetadata.affectedType) {
+        affected_type = decoratorMetadata.affectedType;
+      }
+      if (decoratorMetadata.affectedIdField) {
+        affected_id = targetEntity[decoratorMetadata.affectedIdField];
+      }
+    }
 
     const finalPayload = {
+      schema_version,
       topic,
       event_type: eventType,
       event_time: new Date().toISOString(),
-      app_type: (this.outboxService as any).options?.appType,
+      app_type: options?.appType,
+      affected_type,
+      affected_id,
+      metadata,
       event_data: eventData,
     };
 
     if (this.outboxService["options"]?.enableLog !== false) {
       this.logger.debug(
-        `Relaying entity change to outbox: topic=${topic}, eventType=${eventType}, key=${key}`,
+        `Relaying entity change to outbox: topic=${topic}, eventType=${eventType}, affected=${affected_type}:${affected_id}`,
       );
     }
     await this.outboxService.emit(topic, finalPayload, key);

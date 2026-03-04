@@ -153,6 +153,34 @@ export class OrderSubscriber extends AbstractOutboxSubscriber<OrderEntity> {
       isNew: !before
     };
   }
+
+  // Opsional: Tambahkan metadata (IP, Actor, dll)
+  getAdditionalMetadata(entity) {
+    return {
+      actor_id: 'internal-system',
+      source: 'web-v1'
+    };
+  }
+}
+```
+
+### 4. Custom Metadata Entitas (`@KafkaEventMetadata`)
+Gunakan decorator ini jika entitas memiliki logika *affected_type* atau *affected_id* yang berbeda dari default (id sendiri).
+
+```typescript
+import { KafkaEventMetadata } from 'talent-insider-nestjs-kafka';
+
+@Entity()
+@KafkaEventMetadata({ 
+  affectedType: 'user',      // Entitas utama yang terdampak
+  affectedIdField: 'user_id' // Field yang menyimpan ID user tersebut
+})
+export class CertificateEntity {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  user_id: string; // ID ini yang akan jadi 'affected_id' di Kafka
 }
 ```
 
@@ -176,6 +204,33 @@ export class ProductService {
 
 ---
 
+## 📊 Skema Event (JSON)
+
+Setiap pesan yang dikirim ke Kafka akan mengikuti struktur standar berikut:
+
+```json
+{
+  "schema_version": 1,
+  "topic": "app.events",
+  "event_type": "certificates.created",
+  "event_time": "2026-03-04T06:59:49.134Z",
+  "app_type": "users-service",
+  "affected_type": "user",
+  "affected_id": "61e1711e-0d64-4790-abdb-80d27f2324e2",
+  "metadata": {
+    "actor_id": "system",
+    "ip": "127.0.0.1"
+  },
+  "event_data": {
+    "before": {},
+    "after": { "id": "...", "title": "..." }
+  }
+}
+```
+```
+
+---
+
 ## ⚙️ Referensi Konfigurasi
 
 ### `KafkaOutboxModuleOptions`
@@ -185,6 +240,7 @@ export class ProductService {
 | `topic` | `string` | Topic default untuk seluruh event | **Required** |
 | `appType` | `string` | Nama aplikasi/service (id source) | **Required** |
 | `idType` | `string` | Tipe data Primary Key (`uuid` / `increment`) | **Required** |
+| `schemaVersion` | `number` | Versi skema JSON event | `1` |
 | `repository` | `Provider` | Repository provider (TypeORM/FileSystem) | **Required** |
 | `workerOptions` | `object` | Penjadwalan pengiriman Kafka | **Required** |
 | `enableLog` | `boolean` | Aktifkan log debug di console | `true` |
