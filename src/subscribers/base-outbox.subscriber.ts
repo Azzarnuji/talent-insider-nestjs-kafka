@@ -24,6 +24,7 @@ export abstract class AbstractOutboxSubscriber<
   T,
 > implements EntitySubscriberInterface<T> {
   protected readonly logger = new Logger(AbstractOutboxSubscriber.name);
+  protected readonly isGlobal: boolean = false;
 
   constructor(
     protected readonly dataSource: DataSource,
@@ -148,6 +149,19 @@ export abstract class AbstractOutboxSubscriber<
 
     if (isExcluded) {
       return;
+    }
+
+    // Precedence Guard: If this is GlobalSubscriber, skip if a specific subscriber exists for this entity
+    if (this.isGlobal) {
+      const hasSpecificSubscriber = this.dataSource.subscribers.some(
+        (s) =>
+          s !== this &&
+          typeof (s as any).listenTo === "function" &&
+          (s as any).listenTo() === event.metadata.target,
+      );
+      if (hasSpecificSubscriber) {
+        return;
+      }
     }
 
     if (!targetEntity) return;

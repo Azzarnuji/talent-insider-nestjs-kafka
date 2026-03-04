@@ -122,6 +122,9 @@ import { GlobalOutboxSubscriber } from 'talent-insider-nestjs-kafka';
 export class AppModule {}
 ```
 
+> [!NOTE]
+> **Smart Precedence**: Anda tidak perlu khawatir terjadi duplikasi pesan. Jika Anda mendefinisikan `CustomSubscriber` khusus untuk suatu entity, `GlobalOutboxSubscriber` akan secara otomatis mendeteksi hal tersebut dan "mengalah" (skip processing) untuk entity tersebut.
+
 ### 2. Mengecualikan Entity
 Jika Anda menggunakan `GlobalOutboxSubscriber` tapi ingin mengabaikan entity tertentu (seperti log atau audit):
 

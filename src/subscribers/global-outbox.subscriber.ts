@@ -11,6 +11,8 @@ import { Injectable } from "@nestjs/common";
 @Injectable()
 @EventSubscriber()
 export class GlobalOutboxSubscriber extends AbstractOutboxSubscriber<any> {
+  protected readonly isGlobal = true;
+
   constructor(
     protected readonly dataSource: DataSource,
     protected readonly outboxService: OutboxService,
