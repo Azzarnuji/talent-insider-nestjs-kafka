@@ -23,6 +23,9 @@ export class KafkaOutboxModule {
     if (!options.topic) {
       throw new Error(KafkaOutboxModule.name + " topic is required");
     }
+    if (!options.appType) {
+      throw new Error(KafkaOutboxModule.name + " appType is required");
+    }
     const optionsProvider: Provider = {
       provide: KAFKA_OUTBOX_OPTIONS,
       useValue: options,

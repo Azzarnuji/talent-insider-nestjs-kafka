@@ -10,7 +10,7 @@ import { KAFKA_OUTBOX_OPTIONS, KafkaOutboxModuleOptions } from "./constants";
 export class OutboxService {
   constructor(
     @Inject(KAFKA_OUTBOX_OPTIONS)
-    private readonly options: KafkaOutboxModuleOptions,
+    public readonly options: KafkaOutboxModuleOptions,
     @Inject(IOutboxRepository)
     private readonly repository: IOutboxRepository,
   ) {}

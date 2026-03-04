@@ -160,6 +160,7 @@ export abstract class AbstractOutboxSubscriber<
       topic,
       event_type: eventType,
       event_time: new Date().toISOString(),
+      app_type: (this.outboxService as any).options?.appType,
       event_data: eventData,
     };
 

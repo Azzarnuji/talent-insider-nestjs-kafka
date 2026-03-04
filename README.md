@@ -69,6 +69,7 @@ const outboxOptions: KafkaOutboxModuleOptions = {
     clientId: 'my-awesome-service',
   },
   topic: 'app.events',
+  appType: 'user-service', // Nama aplikasi/service (Mandatory)
   idType: 'uuid', // Wajib diisi: 'uuid' atau 'increment'
   enableLog: true,
   repository: {
@@ -182,6 +183,7 @@ export class ProductService {
 | :--- | :--- | :--- | :--- |
 | `kafkaConfig` | `KafkaConfig` | Konfigurasi bawaan KafkaJS | **Required** |
 | `topic` | `string` | Topic default untuk seluruh event | **Required** |
+| `appType` | `string` | Nama aplikasi/service (id source) | **Required** |
 | `idType` | `string` | Tipe data Primary Key (`uuid` / `increment`) | **Required** |
 | `repository` | `Provider` | Repository provider (TypeORM/FileSystem) | **Required** |
 | `workerOptions` | `object` | Penjadwalan pengiriman Kafka | **Required** |

@@ -13,6 +13,9 @@ export interface KafkaOutboxModuleOptions {
   /** Topic default yang digunakan untuk mengirim pesan Kafka */
   topic: string;
 
+  /** Nama aplikasi/service (misal: 'user-service') */
+  appType: string;
+
   /** Provider repository untuk penyimpanan outbox (FileSystem atau TypeORM) */
   repository: Provider;
 
